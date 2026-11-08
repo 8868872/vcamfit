@@ -1,0 +1,36 @@
+name: Build VCamFit
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools
+        run: brew install ldid xz make
+
+      - name: Install Theos
+        run: |
+          git clone --recursive --depth 1 https://github.com/theos/theos.git $HOME/theos
+          echo "THEOS=$HOME/theos" >> $GITHUB_ENV
+          echo "$HOME/theos/bin" >> $GITHUB_PATH
+
+      - name: Install iOS SDK
+        run: |
+          git clone --depth 1 https://github.com/theos/sdks.git /tmp/sdks
+          mkdir -p $THEOS/sdks
+          cp -r /tmp/sdks/iPhoneOS16.5.sdk $THEOS/sdks/ 2>/dev/null || cp -r /tmp/sdks/iPhoneOS*.sdk $THEOS/sdks/
+          ls -la $THEOS/sdks/
+
+      - name: Build
+        run: |
+          make package FINALPACKAGE=1
+          ls -la packages/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VCamFit-deb
+          path: packages/*.deb
