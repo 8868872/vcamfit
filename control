@@ -1,0 +1,9 @@
+Package: com.yg.vcamfit
+Name: VCamFit
+Version: 1.0.0
+Architecture: iphoneos-arm64
+Description: 让 VCam 的替换图按原比例完整显示（不裁左上角）
+Maintainer: YG
+Author: YG
+Section: Tweaks
+Depends: mobilesubstrate
