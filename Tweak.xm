@@ -2,27 +2,50 @@
 #import <CoreVideo/CoreVideo.h>
 #import <VideoToolbox/VideoToolbox.h>
 
-// 只在 mediaserverd 里生效，避免影响其它 App 的视频处理
 static BOOL IsMediaServerd(void) {
-    static BOOL result;
+    static BOOL r;
     static dispatch_once_t once;
     dispatch_once(&once, ^{
-        NSString *p = [[NSProcessInfo processInfo] processName];
-        result = [p isEqualToString:@"mediaserverd"];
+        r = [[[NSProcessInfo processInfo] processName] isEqualToString:@"mediaserverd"];
     });
-    return result;
+    return r;
 }
 
-// VCam 给 VTPixelTransferSession 设的是 "CropSourceToCleanAperture"（只截左上角、不缩放）
-// 这里在设置生效前把它换成 "Letterbox"（等比缩放到完整可见，四周补边）
+static void VLog(NSString *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    NSString *s = [[NSString alloc] initWithFormat:fmt arguments:ap];
+    va_end(ap);
+    NSLog(@"[VCamFit] %@", s);
+}
+
+%ctor {
+    VLog(@"loaded in %@", [[NSProcessInfo processInfo] processName]);
+}
+
 %hookf(int, VTSessionSetProperty, VTSessionRef session, CFStringRef key, CFTypeRef value) {
-    if (IsMediaServerd() && key && value) {
-        if (CFGetTypeID(key) == CFStringGetTypeID() && CFGetTypeID(value) == CFStringGetTypeID()) {
-            if (CFEqual(key, CFSTR("ScalingMode"))) {
-                if (CFEqual(value, CFSTR("CropSourceToCleanAperture"))) {
-                    value = (CFTypeRef)CFSTR("Letterbox");
-                }
+    if (IsMediaServerd() && key && CFGetTypeID(key) == CFStringGetTypeID()) {
+        NSString *k = (__bridge NSString *)key;
+        if ([k isEqualToString:@"ScalingMode"] && value && CFGetTypeID(value) == CFStringGetTypeID()) {
+            NSString *v = (__bridge NSString *)value;
+            VLog(@"ScalingMode = %@", v);
+            if ([v isEqualToString:@"CropSourceToCleanAperture"]) {
+                value = (CFTypeRef)CFSTR("Letterbox");
+                VLog(@"forced -> Letterbox");
             }
+        }
+    }
+    return %orig;
+}
+
+%hookf(OSStatus, VTPixelTransferSessionTransferImage, VTPixelTransferSessionRef s, CVPixelBufferRef src, CVPixelBufferRef dst) {
+    if (IsMediaServerd()) {
+        static int n = 0;
+        if (n < 40) {
+            n++;
+            size_t sw = CVPixelBufferGetWidth(src), sh = CVPixelBufferGetHeight(src);
+            size_t dw = CVPixelBufferGetWidth(dst), dh = CVPixelBufferGetHeight(dst);
+            VLog(@"transfer %zux%zu -> %zux%zu", sw, sh, dw, dh);
         }
     }
     return %orig;
