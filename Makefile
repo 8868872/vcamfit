@@ -1,4 +1,4 @@
-TARGET := iphone:clang:latest:15.0
+TARGET := iphone:clang:latest:16.0
 ARCHS = arm64 arm64e
 THEOS_PACKAGE_SCHEME = rootless
 
@@ -12,3 +12,4 @@ VCamFit_FRAMEWORKS = Foundation CoreVideo VideoToolbox
 VCamFit_CFLAGS = -fobjc-arc
 
 include $(THEOS_MAKE_PATH)/tweak.mk
+
